@@ -5,43 +5,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Buscador de perfiles GitHub</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; }
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; display: flex; flex-direction: column; min-height: 90vh; }
+    .contenido { flex: 1; }
     .perfil { display: flex; gap: 1rem; align-items: center; }
     .perfil img { width: 96px; border-radius: 50%; }
     .error { color: crimson; }
     .oculto { display: none; }
     
-    /* estilos extras  */
     .filtros { margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center; }
     .lenguajes-box { background: #f4f4f4; padding: 0.8rem; border-radius: 6px; margin-top: 1rem; }
     .lenguajes-box ul { margin: 0.5rem 0 0 0; padding-left: 1.2rem; }
+    
+    /* estilos para cargar mas y footer */
+    #btn-cargar-mas { margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
+    footer { margin-top: 2rem; border-top: 1px solid #ccc; padding-top: 1rem; font-size: 0.85rem; color: #555; }
   </style>
 </head>
 <body>
-  <h1>Buscador de perfiles GitHub</h1>
-  
-  <form id="form-buscar">
-    <input type="text" id="input-usuario" placeholder="Usuario" required>
+  <div class="contenido">
+    <h1>Buscador de perfiles GitHub</h1>
     
-    <!-- selector de ordenamiento -->
-    <select id="select-orden">
-      <option value="updated">Más recientes (updated)</option>
-      <option value="created">Fecha de creación (created)</option>
-      <option value="full_name">Nombre (full_name)</option>
-    </select>
-    
-    <button type="submit" id="btn-buscar">Buscar</button>
-  </form>
+    <form id="form-buscar">
+      <input type="text" id="input-usuario" placeholder="Usuario" required>
+      
+      <select id="select-orden">
+        <option value="updated">Más recientes (updated)</option>
+        <option value="created">Fecha de creación (created)</option>
+        <option value="full_name">Nombre (full_name)</option>
+      </select>
+      
+      <button type="submit" id="btn-buscar">Buscar</button>
+    </form>
 
-  <p id="estado"></p>
-  
-  <section id="perfil" class="perfil oculto"></section>
-  
-  <!-- contenedor para resumen de lenguajes -->
-  <div id="resumen-lenguajes" class="lenguajes-box oculto"></div>
-  
-  <h2 id="titulo-repos" class="oculto">Repositorios recientes</h2>
-  <ul id="repos"></ul>
+    <p id="estado"></p>
+    
+    <section id="perfil" class="perfil oculto"></section>
+    
+    <div id="resumen-lenguajes" class="lenguajes-box oculto"></div>
+    
+    <h2 id="titulo-repos" class="oculto">Repositorios recientes</h2>
+    <ul id="repos"></ul>
+
+    <!-- NUEVO - boton cargar mas -->
+    <button id="btn-cargar-mas" class="oculto">Cargar más</button>
+  </div>
+
+  <!-- NUEVO: Pie de página para la cabecera x-ratelimit-remaining -->
+  <footer>
+    <p id="info-rate-limit">Peticiones restantes: --</p>
+  </footer>
 
   <script src="app.js"></script>
 </body>

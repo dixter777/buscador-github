@@ -3,19 +3,35 @@ const API = 'https://api.github.com';
 const form = document.querySelector('#form-buscar');
 const input = document.querySelector('#input-usuario');
 const boton = document.querySelector('#btn-buscar');
-const selectOrden = document.querySelector('#select-orden'); 
+const selectOrden = document.querySelector('#select-orden');
 const estado = document.querySelector('#estado');
 const perfil = document.querySelector('#perfil');
 const titulo = document.querySelector('#titulo-repos');
 const repos = document.querySelector('#repos');
 const resumenLenguajes = document.querySelector('#resumen-lenguajes');
 
-// 1. Petición genérica con traducción de errores HTTP
+// elementos para la actividad 3
+const btnCargarMas = document.querySelector('#btn-cargar-mas');
+const infoRateLimit = document.querySelector('#info-rate-limit');
+
+let usuarioActual = '';
+let paginaActual = 1;
+let acumuladoRepos = [];
+
+// 1. Petición genérica con lectura de cabeceras HTTP (x-ratelimit-remaining)
 async function obtenerJSON(url) {
   const res = await fetch(url);
+
+  // Muestra en el pie de página las peticiones restantes
+  const restantes = res.headers.get('x-ratelimit-remaining');
+  if (restantes !== null) {
+    infoRateLimit.textContent = `Peticiones restantes disponibles: ${restantes}`;
+  }
+
   if (res.status === 404) throw new Error('Usuario no encontrado');
   if (res.status === 403) throw new Error('Límite de peticiones alcanzado');
   if (!res.ok) throw new Error(`Error HTTP ${res.status}`);
+
   return res.json();
 }
 
@@ -26,7 +42,6 @@ function mostrarPerfil(u) {
   img.alt = `Avatar de ${u.login}`;
 
   const nombre = document.createElement('h2');
-  // si el usuario no registró un nombre, se muestra su login
   nombre.textContent = u.name ?? u.login;
 
   const datos = document.createElement('p');
@@ -44,17 +59,16 @@ function mostrarPerfil(u) {
   perfil.classList.remove('oculto');
 }
 
-// act 2- Calcular y mostrar el resumen de lenguajes
+// 3. Resumen acumulado de lenguajes
 function mostrarResumenLenguajes(listaRepos) {
   const conteo = {};
 
-  // Contar las apariciones de cada lenguaje en la lista devuelta
   listaRepos.forEach(r => {
     const lang = r.language ?? 'Sin lenguaje';
     conteo[lang] = (conteo[lang] || 0) + 1;
   });
 
-  resumenLenguajes.innerHTML = '<strong>Lenguajes más usados en esta lista:</strong>';
+  resumenLenguajes.innerHTML = '<strong>Lenguajes más usados:</strong>';
   const ul = document.createElement('ul');
 
   for (const [lenguaje, cantidad] of Object.entries(conteo)) {
@@ -67,10 +81,9 @@ function mostrarResumenLenguajes(listaRepos) {
   resumenLenguajes.classList.remove('oculto');
 }
 
-// 4. Pintar la lista de repositorios
-function mostrarRepos(lista) {
-  repos.innerHTML = '';
-  lista.forEach(r => {
+// 4. Pintar repositorios (agregando nuevos elementos)
+function agregarRepos(listaNuevos) {
+  listaNuevos.forEach(r => {
     const a = document.createElement('a');
     a.href = r.html_url;
     a.target = '_blank';
@@ -86,20 +99,23 @@ function mostrarRepos(lista) {
   titulo.classList.remove('oculto');
 }
 
-// 5. Evento submit: petición con sort dinámico
+// 5. Evento submit 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const usuario = encodeURIComponent(input.value.trim());
-  if (!usuario) return;
+  usuarioActual = encodeURIComponent(input.value.trim());
+  if (!usuarioActual) return;
 
-  // Se obtiene el valor seleccionado en el <select>
+  paginaActual = 1;
+  acumuladoRepos = [];
+  repos.innerHTML = '';
+  btnCargarMas.classList.add('oculto');
+
   const criterioOrden = selectOrden.value;
-
-  // Construcción de los parámetros con URLSearchParams
   const params = new URLSearchParams({ 
     sort: criterioOrden, 
-    per_page: 5 
+    per_page: 5,
+    page: paginaActual 
   });
 
   boton.disabled = true;
@@ -108,22 +124,64 @@ form.addEventListener('submit', async (e) => {
 
   try {
     const [datosUsuario, datosRepos] = await Promise.all([
-      obtenerJSON(`${API}/users/${usuario}`),
-      obtenerJSON(`${API}/users/${usuario}/repos?${params}`)
+      obtenerJSON(`${API}/users/${usuarioActual}`),
+      obtenerJSON(`${API}/users/${usuarioActual}/repos?${params}`)
     ]);
 
     mostrarPerfil(datosUsuario);
-    mostrarRepos(datosRepos);
-    mostrarResumenLenguajes(datosRepos); // Llamada a la nueva función
+    
+    acumuladoRepos = [...datosRepos];
+    agregarRepos(datosRepos);
+    mostrarResumenLenguajes(acumuladoRepos);
+
+    // Si devuelve 5 resultados, puede haber mas paginas
+    if (datosRepos.length === 5) {
+      btnCargarMas.classList.remove('oculto');
+    }
+
     estado.textContent = '';
   } catch (error) {
     perfil.classList.add('oculto');
     titulo.classList.add('oculto');
     resumenLenguajes.classList.add('oculto');
+    btnCargarMas.classList.add('oculto');
     repos.innerHTML = '';
     estado.className = 'error';
     estado.textContent = error.message;
   } finally {
     boton.disabled = false;
+  }
+});
+
+// 6. Evento click en "Cargar mas"
+btnCargarMas.addEventListener('click', async () => {
+  paginaActual++;
+  btnCargarMas.disabled = true;
+  btnCargarMas.textContent = 'Cargando...';
+
+  const criterioOrden = selectOrden.value;
+  const params = new URLSearchParams({ 
+    sort: criterioOrden, 
+    per_page: 5,
+    page: paginaActual 
+  });
+
+  try {
+    const nuevosRepos = await obtenerJSON(`${API}/users/${usuarioActual}/repos?${params}`);
+    
+    acumuladoRepos = [...acumuladoRepos, ...nuevosRepos];
+    agregarRepos(nuevosRepos);
+    mostrarResumenLenguajes(acumuladoRepos);
+
+    // Se oculta si hay menos de 5 resultados
+    if (nuevosRepos.length < 5) {
+      btnCargarMas.classList.add('oculto');
+    }
+  } catch (error) {
+    estado.className = 'error';
+    estado.textContent = error.message;
+  } finally {
+    btnCargarMas.disabled = false;
+    btnCargarMas.textContent = 'Cargando más';
   }
 });
